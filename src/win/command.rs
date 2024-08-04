@@ -29,10 +29,7 @@ impl Command {
         
         // Put command line into explicit heap memory because we will hand
         // it off to CreateProcess.
-        let cmd_line_heap = mem::HeapMemory::alloc(cmd_line.clone().count()*std::mem::size_of::<u16>());
-        if cmd_line_heap.is_invalid() {
-            return Err(anyhow::anyhow!("allocation failed"));
-        }
+        let cmd_line_heap = mem::HeapMemory::try_alloc(cmd_line.clone().count()*std::mem::size_of::<u16>())?;
         unsafe {
             let ptr = cmd_line_heap.0 as *mut u16;
             for (idx, c) in cmd_line.enumerate() {
@@ -73,10 +70,7 @@ fn prepare_startup_information(console: &PseudoConsole) -> anyhow::Result<STARTU
     }
 
     // Allocate memory
-    let attr_list = mem::HeapMemory::alloc(size);
-    if attr_list.is_invalid() {
-        return Err(anyhow::anyhow!("Allocation failed"));
-    }
+    let attr_list = mem::HeapMemory::try_alloc(size)?;
     si.lpAttributeList = LPPROC_THREAD_ATTRIBUTE_LIST(attr_list.0);
 
     unsafe {

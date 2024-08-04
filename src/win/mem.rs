@@ -10,6 +10,15 @@ impl HeapMemory {
         }
     }
 
+    pub fn try_alloc(size: usize) -> anyhow::Result<Self> {
+        let mem = Self::alloc(size);
+        if mem.is_invalid() {
+            Err(anyhow::anyhow!("Allocation failed"))
+        } else {
+            Ok(mem)
+        }
+    }
+
     pub fn into_ptr(self) -> *mut std::ffi::c_void {
         let ptr = self.0;
         std::mem::forget(self);
@@ -17,7 +26,7 @@ impl HeapMemory {
     }
 
     pub fn is_invalid(&self) -> bool {
-        !self.0.is_null()
+        self.0.is_null()
     }
 }
 
