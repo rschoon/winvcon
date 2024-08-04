@@ -43,6 +43,11 @@ impl Command {
             )
         }?;
 
+        // Free the attribute list
+        unsafe {
+            mem::HeapMemory::from_ptr(si.lpAttributeList.0);
+        }
+
         Ok(pi)
     }
 }
@@ -85,8 +90,8 @@ fn prepare_startup_information(console: &PseudoConsole) -> anyhow::Result<STARTU
     }
 
     // Allocate memory
-    let attr_list = mem::HeapMemory::try_alloc(size)?;
-    si.lpAttributeList = LPPROC_THREAD_ATTRIBUTE_LIST(attr_list.0);
+    let attr_list = mem::HeapMemory::alloc(size)?;
+    si.lpAttributeList = LPPROC_THREAD_ATTRIBUTE_LIST(attr_list.as_ptr());
 
     unsafe {
         InitializeProcThreadAttributeList(si.lpAttributeList, 1, 0, &mut size)

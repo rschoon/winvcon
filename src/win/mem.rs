@@ -1,32 +1,39 @@
 
 use windows::Win32::System::Memory::{GetProcessHeap, HeapAlloc, HeapFree, HEAP_FLAGS};
 
-pub struct HeapMemory(pub *mut std::ffi::c_void);
+pub struct HeapMemory(*mut std::ffi::c_void);
 
 impl HeapMemory {
-    pub fn alloc(size: usize) -> Self {
-        unsafe {
-            Self(HeapAlloc(GetProcessHeap().expect("process heap"), HEAP_FLAGS(0), size))
-        }
-    }
-
-    pub fn try_alloc(size: usize) -> anyhow::Result<Self> {
-        let mem = Self::alloc(size);
-        if mem.is_invalid() {
+    /// Create memory allocation, returning an error if allocation failed
+    pub fn alloc(size: usize) -> anyhow::Result<Self> {
+        let mem = unsafe {
+            HeapAlloc(GetProcessHeap().expect("process heap"), HEAP_FLAGS(0), size)
+        };
+        if mem.is_null() {
             Err(anyhow::anyhow!("Allocation failed"))
         } else {
-            Ok(mem)
+            Ok(Self(mem))
         }
     }
 
+    /// Convert from pointer
+    /// 
+    /// # Safety
+    /// Pointer must have been previously allocated via HeapMemory
+    pub unsafe fn from_ptr(ptr: *mut std::ffi::c_void) -> Self {
+        Self(ptr)
+    }
+
+    /// Convert into pointer, forgetting pointer was allocated
     pub fn into_ptr(self) -> *mut std::ffi::c_void {
         let ptr = self.0;
         std::mem::forget(self);
         ptr
     }
 
-    pub fn is_invalid(&self) -> bool {
-        self.0.is_null()
+    /// Convert into pointer, without forgetting pointer was allocated
+    pub fn as_ptr(&self) -> *mut std::ffi::c_void {
+        self.0
     }
 }
 
