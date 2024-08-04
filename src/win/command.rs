@@ -24,26 +24,14 @@ impl Command {
     }
 
     pub fn spawn_into(self, console: &PseudoConsole) -> anyhow::Result<PROCESS_INFORMATION> {
-        let cmd_line_osstr = self.command.join(OsStr::new("\0"));
-        let cmd_line = cmd_line_osstr.encode_wide();
-        
-        // Put command line into explicit heap memory because we will hand
-        // it off to CreateProcess.
-        let cmd_line_heap = mem::HeapMemory::try_alloc(cmd_line.clone().count()*std::mem::size_of::<u16>())?;
-        unsafe {
-            let ptr = cmd_line_heap.0 as *mut u16;
-            for (idx, c) in cmd_line.enumerate() {
-                *ptr.add(idx) = c;
-            }
-        }
+        let mut cmd_line = build_command(&self.command);
 
         let si = prepare_startup_information(console)?;
-
         let mut pi = PROCESS_INFORMATION::default();
         unsafe {
             CreateProcessW(
                 None,
-                PWSTR(cmd_line_heap.into_ptr() as *mut u16),
+                PWSTR(cmd_line.as_mut_ptr()),
                 None,
                 None,
                 false,
@@ -57,6 +45,33 @@ impl Command {
 
         Ok(pi)
     }
+}
+
+fn build_command(command: &[OsString]) -> Vec<u16> {
+    let mut cmd = Vec::new();
+    cmd.push(b'"' as u16);
+    cmd.extend(command[0].encode_wide());
+    cmd.push(b'"' as u16);
+
+    for arg in &command[1..] {
+        cmd.push(b' ' as u16);
+        cmd.push(b'\"' as u16);
+        for c in arg.encode_wide() {
+            if c == '\\' as u16 {
+                cmd.extend(['\\' as u16, '\\' as u16]);
+            } else {
+                if c == '\"' as u16 {
+                    cmd.push('\\' as u16);
+                }
+                cmd.push(c);
+            }
+        }
+        cmd.push(b'\"' as u16);
+    }
+
+    cmd.push(0);
+
+    cmd
 }
 
 fn prepare_startup_information(console: &PseudoConsole) -> anyhow::Result<STARTUPINFOEXW> {
