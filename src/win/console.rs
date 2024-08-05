@@ -1,4 +1,5 @@
 
+use std::sync::Arc;
 use windows::Win32::System::Console::{HPCON, ClosePseudoConsole, CreatePseudoConsole, COORD};
 
 use super::pipe;
@@ -6,8 +7,8 @@ use super::pipe;
 pub struct PseudoConsole {
     handle: HPCON,
     _in_rx: pipe::Receiver,
-    out_rx: Option<pipe::Receiver>,
-    in_tx: Option<pipe::Sender>,
+    out_rx: Arc<pipe::Receiver>,
+    in_tx: Arc<pipe::Sender>,
     _out_tx: pipe::Sender,
 }
 
@@ -28,14 +29,22 @@ impl PseudoConsole {
         Ok(Self {
             handle,
             _in_rx: in_rx,
-            out_rx: Some(out_rx),
-            in_tx: Some(in_tx),
+            out_rx: Arc::new(out_rx),
+            in_tx: Arc::new(in_tx),
             _out_tx: out_tx,
         })
     }
 
     pub fn handle(&self) -> HPCON {
         self.handle
+    }
+
+    pub fn stdout(&self) -> Arc<pipe::Receiver> {
+        self.out_rx.clone()
+    }
+
+    pub fn stdin(&self) -> Arc<pipe::Sender> {
+        self.in_tx.clone()
     }
 }
 
